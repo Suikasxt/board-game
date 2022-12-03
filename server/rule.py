@@ -13,7 +13,7 @@ class BaseRule:
         pass
     
     def reset(self):
-        self.state = np.zeros(self.shape).tolist()
+        self.state = (np.zeros(self.shape)-1).tolist()
         self.turn = 0
 
     def vaildCoordinate(self, coord):
@@ -22,7 +22,7 @@ class BaseRule:
         return True
 
     def step(self, action):
-        coord, player_id = action['coord'], action['player_id']
+        coord, player_id = np.array(action['coord']), action['player_id']
         if not self.vaildCoordinate(coord):
             return False, "Invaild action"
         return True, "Successfully"
@@ -44,6 +44,7 @@ class GobangRule(BaseRule):
             return False, "Invaild action"
 
         self.state[coord[0]][coord[1]] = player_id
+        self.turn ^= 1
         return True, "Successfully"
     
     def judgeFinish(self):
@@ -55,7 +56,7 @@ class GobangRule(BaseRule):
         space_count = 0
         
         for dir in DIRECTION_8[:4]:
-            count = np.zeros(self.shape)
+            count = np.zeros(self.shape, dtype=np.uint8)
             for x in range(self.height):
                 for y in range(self.width):
                     if state[x][y] == -1:
@@ -65,7 +66,7 @@ class GobangRule(BaseRule):
                     if self.vaildCoordinate(last_pos) and state[x][y] == state[last_pos[0]][last_pos[1]]:
                         count[x][y] = count[last_pos[0]][last_pos[1]] + 1
                         if count[x][y] == 5:
-                            win[count[x][y]] = True
+                            win[state[x][y]] = True
                     else:
                         count[x][y] = 1
         

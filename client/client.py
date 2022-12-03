@@ -47,9 +47,9 @@ class Grid(QWidget):
         if state == -1:
             pix = GridPix
         elif state == 0:
-            pix = WhitePiecePix
-        elif state == 1:
             pix = BlackPiecePix
+        elif state == 1:
+            pix = WhitePiecePix
         
         self.label.setPixmap(pix.scaled(self.grid_size, self.grid_size))
         
@@ -58,8 +58,9 @@ class Grid(QWidget):
 
 
 class Chessboard(QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent, client):
         super().__init__(parent)
+        self.client = client
         self.grid_layout = QGridLayout()
         self.grid_layout.setSpacing(0)
         self.setLayout(self.grid_layout)
@@ -78,7 +79,7 @@ class Chessboard(QWidget):
         for i in range(height):
             for j in range(width):
                 gird = Grid(self, i, j, grid_size)
-                gird.pushSign.connect(self.parent().client.step)
+                gird.pushSign.connect(self.client.step)
                 self.grid_layout.addWidget(gird, *(i,j))
                 self.myGrid[(i, j)] = gird
                 
@@ -101,7 +102,7 @@ class Menu(QWidget):
         self.heightEdit = MyEdit('Height', '8')
         self.gameTypeBox = QComboBox(self)
         self.gameTypeBox.setView(QListView())
-        self.gameTypeBox.addItem("GoBang")
+        self.gameTypeBox.addItem("Gobang")
         self.gameTypeBox.addItem("Go")
         self.gameTypeBox.addItem("Reversi")
         self.startButton = QPushButton('Start')
@@ -130,7 +131,7 @@ class GameClient(QThread):
         super(GameClient, self).__init__()
         
     def step(self, coord_x, coord_y):
-        self.proxy.sendStep(coord_x, coord_y)
+        self.proxy.sendStep([coord_x, coord_y])
     
     def gameStart(self, gameType, height, width):
         data = {
@@ -148,9 +149,9 @@ class GameClient(QThread):
                 info = order['info']
                 self.setGameInfoSign.emit(info['gameType'], info['height'], info['width'])
             elif order['type'] == 'state':
-                self.setStateSign.emit(info['state'], info['turn'])
+                self.setStateSign.emit(order['state'], order['turn'])
             elif order['type'] == 'message':
-                self.messageSign.emit(info['message'])
+                self.messageSign.emit(order['message'])
         
         
 class MainWindow(QMainWindow):
@@ -166,7 +167,7 @@ class MainWindow(QMainWindow):
         main_widget = QWidget(self)
         h_layout = QHBoxLayout()
         main_widget.setLayout(h_layout)
-        self.board = Chessboard(self)
+        self.board = Chessboard(self, self.client)
         self.board.reset(8, 8)
         self.menu = Menu(self)
         self.menu.gameStartSign.connect(self.client.gameStart)

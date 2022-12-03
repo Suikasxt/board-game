@@ -8,7 +8,7 @@ class GameServer:
     
     def gameLoop(self):
         gameInfo = self.proxy.sendGameStart()
-        rule = RuleFactory.create(gameInfo['GameType'], gameInfo['height'], gameInfo['weight'])
+        rule = RuleFactory.create(gameInfo['gameType'], gameInfo['height'], gameInfo['width'])
         rule.reset()
         self.proxy.sendState(rule.state, rule.turn)
         while True:
@@ -22,7 +22,7 @@ class GameServer:
                 if vaild:
                     self.proxy.sendState(rule.state, rule.turn)
                 else:
-                    self.proxy.sendMessage(message)
+                    self.proxy.sendMessage(message, player_id)
                     
             else:
                 raise ValueError('Invaild action type {}'.format(data['type']))
@@ -35,6 +35,7 @@ class GameServer:
             'winner': winner,
             'exit': False
         }
+        return result
         
     
     def mainLoop(self):

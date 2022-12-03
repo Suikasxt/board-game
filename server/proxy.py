@@ -1,72 +1,39 @@
 import socket
 import json
 import sys
-import threading
-import queue
-import time
-sys.path.append('..')
+sys.path.append('./..')
 import settings
-
-class SingleServerProxy(threading.Thread):
-    def __init__(self, player_id, queue) -> None:
-        super().__init__()
-        self.player_id = player_id
-        self.connected = False
-        self.queue = queue
-        
-    def connect(self):
-        self.socket_send = socket.socket()
-        self.socket_recv = socket.socket()
-        host = settings.HOST
-        self.socket_send.bind((host, settings.PORT_LIST_SERVER[self.player_id]))
-        self.socket_send.listen(5)
-        self.socket_recv.bind((host, settings.PORT_LIST_CLIENT[self.player_id]))
-        self.socket_recv.listen(5)
-        
-        self.socket_send.accept()
-        self.socket_recv.accept()
-        self.connected = True
-        print("****Player {} connected.".format(self.player_id))
-        
-    def send(self, data):
-        self.socket_send.send(json.dumps(data).encode('utf-8'))
-        
-    def recv(self):
-        data = ''
-        while not data:
-            time.sleep(0.1)
-            data = self.socket_recv.recv(1024).decode('utf-8')
-        data = json.loads(data)
-        return data
-
-    def run(self):
-        self.connect()
-        while True:
-            data = self.recv()
-            self.queue.put((self.player_id, data))
-            
-    def close(self):
-        self.socket_recv.close()
-        self.socket_send.close()
 
 class ServerProxy:
     def __init__(self) -> None:
-        self.queue = queue.Queue()
-        self.proxy = [SingleServerProxy(0, self.queue), SingleServerProxy(1, self.queue)]
+        pass
 
     def connect(self):
-        self.proxy[0].start()
-        self.proxy[1].start()
-        
-        while not (self.proxy[0].connected and self.proxy[1].connected):
-            time.sleep(0.1)
+        socket.setdefaulttimeout(0.2)
+        self.socket = [socket.socket(), socket.socket()]
+        self.client = [None] *2
+        host = settings.HOST
+        for s, port in zip(self.socket, settings.PORT_LIST):
+            s.bind((host, port))
+            s.listen(5)
+            
+        connected = [False, False]
+        while not all(connected):
+            for i in range(2):
+                if not connected[i]:
+                    try:
+                        self.client[i], add = self.socket[i].accept()
+                    except socket.timeout:
+                        continue
+                    print('****Player {} connected.'.format(i))
+                    connected[i] = True
     
     def send(self, data, player_id = [0,1]):
         if not (type(player_id) == list):
             player_id = [player_id]
         
         for p in player_id:
-            self.proxy[p].send(data)
+            self.client[p].send(json.dumps(data).encode('utf-8'))
             
         print("****Send data to {}".format(player_id))
         print(data)
@@ -76,9 +43,9 @@ class ServerProxy:
             player_id, action = self.recv()
             if action['type'] == 'start':
                 break
-            self.sendMessage(player_id, 'Game not start.')
+            self.sendMessage('Game not start.', player_id)
         game_info = action['info']
-        print(game_info)
+        
         game_info_message = {
             'type': 'start',
             'info': game_info
@@ -111,10 +78,17 @@ class ServerProxy:
         self.send(data, player_id)
     
     def recv(self):
-        while self.queue.empty():
-            time.sleep(0.1)
-        return self.queue.get()
+        while True:
+            for player_id in [0, 1]:
+                try:
+                    data = json.loads(self.client[player_id].recv(1024).decode('utf-8'))
+                except socket.timeout:
+                    continue
+                
+                print("****Receive data from {}".format(player_id))
+                print(data)
+                return player_id, data
 
     def close(self):
-        for p in self.proxy:
-            p.close()
+        for s in self.socket:
+            s.close()
