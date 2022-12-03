@@ -24,13 +24,11 @@ class MyEdit(QWidget):
 
 class Grid(QWidget):
     pushSign = pyqtSignal(int, int)
-    def __init__(self, parent, coord_x, coord_y, grid_size, shape_x, shape_y):
+    def __init__(self, parent, coord_x, coord_y, grid_size):
         super().__init__(parent)
         self.setObjectName('Grid')
         self.coord_x = coord_x
         self.coord_y = coord_y
-        self.shape_x = shape_x
-        self.shape_y = shape_y
         self.grid_size = grid_size
         
         self.setFixedSize(grid_size, grid_size)
@@ -41,27 +39,14 @@ class Grid(QWidget):
         
         self.label = QLabelCenter()
         self.layout.addWidget(self.label)
-        self.setState(1)
+        self.setState(-1)
     
     def setState(self, state):
         GridPix = QPixmap('./img/grid.png')
-        GridPix_u = QPixmap('./img/grid_u.png')
-        GridPix_d = QPixmap('./img/grid_d.png')
-        GridPix_l = QPixmap('./img/grid_l.png')
-        GridPix_r = QPixmap('./img/grid_r.png')
-        GridPix_lu = QPixmap('./img/grid_lu.png')
-        GridPix_ld = QPixmap('./img/grid_ld.png')
-        GridPix_ru = QPixmap('./img/grid_ru.png')
-        GridPix_rd = QPixmap('./img/grid_rd.png')
-        WhitePiecePix = QPixmap('./img/white_piece_big.png')
-        BlackPiecePix = QPixmap('./img/black_piece_big.png')
-        
-        pix_mat = [[GridPix_lu, GridPix_u, GridPix_ru],
-                   [GridPix_l, GridPix, GridPix_r],
-                   [GridPix_ld, GridPix_d, GridPix_rd]]
-        
+        WhitePiecePix = QPixmap('./img/white_piece.png')
+        BlackPiecePix = QPixmap('./img/black_piece.png')
         if state == -1:
-            pix = pix_mat[self.shape_x][self.shape_y]
+            pix = GridPix
         elif state == 0:
             pix = BlackPiecePix
         elif state == 1:
@@ -95,7 +80,7 @@ class Chessboard(QWidget):
         
         for i in range(height):
             for j in range(width):
-                gird = Grid(self, i, j, grid_size, 1-(i==0)+(i==height-1), 1-(j==0)+(j==width-1))
+                gird = Grid(self, i, j, grid_size)
                 gird.pushSign.connect(self.client.step)
                 self.grid_layout.addWidget(gird, *(i,j))
                 self.myGrid[(i, j)] = gird
