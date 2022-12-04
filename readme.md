@@ -1,5 +1,10 @@
 ## 棋类对战平台
 
+#### 相关链接
+
++ 演示视频：https://cloud.tsinghua.edu.cn/f/65dd6f93411a40f79a81/
++ Git仓库：https://github.com/Suikasxt/board-game
+
 #### 设计思路
 
 + 采用服务器端和客户端分离的设计：
@@ -15,3 +20,7 @@
     + client：包含GameClient类，用于管理游戏对局流程。而由于客户端流程其实很简单，发送开始信号后不断展示服务器端发来的信号即可，因此实际上只充当了proxy和gui直接对接的接口层。
     + gui：使用pyqt实现了所有图形界面，主要包含侧边菜单栏和棋盘两大模块。
     + proxy：代理模式，在ClientProxy中封装了一切跟服务端交互的通信接口。
+
+#### 类图
+
+![](类图.png)
