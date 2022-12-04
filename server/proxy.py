@@ -51,6 +51,7 @@ class ServerProxy:
             'info': game_info
         }
         self.send(game_info_message)
+        self.sendMessage('{} game start.'.format(game_info['gameType']))
         
         return game_info
 

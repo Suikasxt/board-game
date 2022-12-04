@@ -35,6 +35,18 @@ class ClientProxy:
         }
         self.send(data)
         
+    def sendGiveup(self):
+        data = {
+            'type': 'give up'
+        }
+        self.send(data)
+        
+    def sendRetract(self):
+        data = {
+            'type': 'retract'
+        }
+        self.send(data)
+        
     def recv(self):
         data = self.socket.recv(1024).decode('utf-8')
         data = json.loads(data)

@@ -1,129 +1,13 @@
 import sys
-import os
-from PyQt5.QtWidgets import QMainWindow, QWidget, QListView, QPushButton, QComboBox, QGridLayout, QHBoxLayout, QVBoxLayout, QApplication, QLineEdit, QLabel, QMessageBox
-from PyQt5.QtCore import pyqtSignal, QThread, Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import pyqtSignal, QThread
 from proxy import ClientProxy
+from gui import MainWindow
 
-class QLabelCenter(QLabel):
-    def __init__(self, text = ''):
-        super().__init__(text)
-        self.setAlignment(Qt.AlignCenter)
-
-class MyEdit(QWidget):
-    def __init__(self, label, text):
-        super().__init__()
-
-        hlayout = QHBoxLayout()
-        self.setLayout(hlayout)
-
-        self.label = QLabelCenter(label)
-        self.edit = QLineEdit(text)
-        hlayout.addWidget(self.label, 1)
-        hlayout.addWidget(self.edit, 3)
-
-class Grid(QWidget):
-    pushSign = pyqtSignal(int, int)
-    def __init__(self, parent, coord_x, coord_y, grid_size):
-        super().__init__(parent)
-        self.setObjectName('Grid')
-        self.coord_x = coord_x
-        self.coord_y = coord_y
-        self.grid_size = grid_size
-        
-        self.setFixedSize(grid_size, grid_size)
-        
-        self.layout = QHBoxLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.layout)
-        
-        self.label = QLabelCenter()
-        self.layout.addWidget(self.label)
-        self.setState(-1)
-    
-    def setState(self, state):
-        GridPix = QPixmap('./img/grid.png')
-        WhitePiecePix = QPixmap('./img/white_piece.png')
-        BlackPiecePix = QPixmap('./img/black_piece.png')
-        if state == -1:
-            pix = GridPix
-        elif state == 0:
-            pix = BlackPiecePix
-        elif state == 1:
-            pix = WhitePiecePix
-        
-        self.label.setPixmap(pix.scaled(self.grid_size, self.grid_size))
-        
-    def mousePressEvent(self, QMouseEvent):
-        self.pushSign.emit(self.coord_x, self.coord_y)
-
-
-class Chessboard(QWidget):
-    def __init__(self, parent, client):
-        super().__init__(parent)
-        self.client = client
-        self.grid_layout = QGridLayout()
-        self.grid_layout.setSpacing(0)
-        self.setLayout(self.grid_layout)
-        self.myGrid = {}
-        self.setAttribute(Qt.WA_StyledBackground, True)
-
-    def reset(self, height, width):
-        for i in range(self.grid_layout.count()):
-            self.grid_layout.itemAt(i).widget().deleteLater()
-        self.myGrid = {}
-        
-        self.height = height
-        self.width = width
-        grid_size = 50
-        self.setFixedSize(grid_size*width, grid_size*height)
-        
-        for i in range(height):
-            for j in range(width):
-                gird = Grid(self, i, j, grid_size)
-                gird.pushSign.connect(self.client.step)
-                self.grid_layout.addWidget(gird, *(i,j))
-                self.myGrid[(i, j)] = gird
-                
-    def setState(self, state):
-        for i in range(self.height):
-            for j in range(self.width):
-                self.myGrid[(i, j)].setState(state[i][j])
-
-class Menu(QWidget):
-    gameStartSign = pyqtSignal(str, int, int)
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.initUI()
-	
-    def initUI(self):
-        vlayout = QVBoxLayout()
-        self.setLayout(vlayout)
-        
-        self.widthEdit = MyEdit('Width', '8')
-        self.heightEdit = MyEdit('Height', '8')
-        self.gameTypeBox = QComboBox(self)
-        self.gameTypeBox.setView(QListView())
-        self.gameTypeBox.addItem("Gobang")
-        self.gameTypeBox.addItem("Go")
-        self.gameTypeBox.addItem("Reversi")
-        self.startButton = QPushButton('Start')
-        self.startButton.clicked.connect(self.gameStart)
-        
-        vlayout.addWidget(self.widthEdit)
-        vlayout.addWidget(self.heightEdit)
-        vlayout.addWidget(self.gameTypeBox)
-        vlayout.addWidget(self.startButton)
-    
-    def gameStart(self):
-        gameType = self.gameTypeBox.currentText()
-        height = int(self.heightEdit.edit.text())
-        width = int(self.widthEdit.edit.text())
-        self.gameStartSign.emit(gameType, height, width)
-    
 class GameClient(QThread):
     setGameInfoSign = pyqtSignal(str, int, int)
     setStateSign = pyqtSignal(object, int)
+    gameOverSign = pyqtSignal()
     messageSign = pyqtSignal(str)
     def __init__(self, player_id):
         self.player_id = player_id
@@ -142,6 +26,15 @@ class GameClient(QThread):
             'width': width
         }
         self.proxy.sendGameInfo(data)
+        
+    def stepSkip(self):
+        self.proxy.sendStep([-1, -1])
+        
+    def giveUp(self):
+        self.proxy.sendGiveup()
+    
+    def retract(self):
+        self.proxy.sendRetract()
   
     def run(self):
         self.proxy.connect()
@@ -154,42 +47,8 @@ class GameClient(QThread):
                 self.setStateSign.emit(order['state'], order['turn'])
             elif order['type'] == 'message':
                 self.messageSign.emit(order['message'])
-        
-        
-class MainWindow(QMainWindow):
-    def __init__(self, client):
-        super().__init__()
-        self.client = client
-        self.client.setGameInfoSign.connect(self.setGameInfo)
-        self.client.setStateSign.connect(self.setState)
-        self.client.messageSign.connect(self.showMessage)
-        self.initUI()
-	
-    def initUI(self):
-        main_widget = QWidget(self)
-        h_layout = QHBoxLayout()
-        main_widget.setLayout(h_layout)
-        self.board = Chessboard(main_widget, self.client)
-        self.board.reset(8, 8)
-        self.menu = Menu(main_widget)
-        self.menu.gameStartSign.connect(self.client.gameStart)
-        h_layout.addWidget(self.board)
-        h_layout.addWidget(self.menu)
-        
-        self.setCentralWidget(main_widget)
-        file = open('./client.qss', 'r')
-        self.setStyleSheet(file.read())
-    
-    def setGameInfo(self, gameType, height, width):
-        self.board.reset(height, width)
-        
-    def setState(self, state, turn):
-        self.board.setState(state)
-    
-    def showMessage(self, message):
-        print("****Show Message", message)
-        pass
-        
+            elif order['type'] == 'over':
+                self.gameOverSign.emit()
         
         
 if __name__ == '__main__':

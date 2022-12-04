@@ -1,5 +1,5 @@
 from proxy import ServerProxy
-from rule import RuleFactory
+from rule import RuleFactory, MementoBox
 
 class GameServer:
     def __init__(self) -> None:
@@ -7,10 +7,12 @@ class GameServer:
         pass
     
     def gameLoop(self):
+        memory = MementoBox()
         gameInfo = self.proxy.sendGameStart()
         rule = RuleFactory.create(gameInfo['gameType'], gameInfo['height'], gameInfo['width'])
         rule.reset()
-        self.proxy.sendState(rule.state, rule.turn)
+        memory.store(*rule.store())
+        self.proxy.sendState(*rule.store())
         while True:
             player_id, data = self.proxy.recv()
             if data['type'] == 'step':
@@ -20,17 +22,31 @@ class GameServer:
                 }
                 vaild, message = rule.step(action)
                 if vaild:
+                    memory.store(rule.state, rule.turn)
+                    finish, winner = rule.judgeFinish()
                     self.proxy.sendState(rule.state, rule.turn)
+                    if finish:
+                        break
                 else:
                     self.proxy.sendMessage(message, player_id)
-                    
+            elif data['type'] == 'retract':
+                successful, data = memory.retract(player_id)
+                rule.restore(*data)
+                self.proxy.sendState(rule.state, rule.turn)
+                if successful:
+                    self.proxy.sendMessage("Retract successfully.", player_id)
+                else:
+                    self.proxy.sendMessage("Retract error.", player_id)
+            elif data['type'] == 'give up':
+                winner = player_id^1
+                break
+            elif data['type'] == 'start':
+                self.proxy.sendMessage('Please finish this game.', player_id)
             else:
                 raise ValueError('Invaild action type {}'.format(data['type']))
-            finish, winner = rule.judgeFinish()
-            if finish:
-                break
             
         self.proxy.sendGameOver(winner)
+        self.proxy.sendMessage('Game over. Winner is player {}'.format(winner))
         result = {
             'winner': winner,
             'exit': False
