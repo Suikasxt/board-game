@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QListView, QPushButton, QComboBox, QGridLayout, QHBoxLayout, QVBoxLayout, QApplication, QLineEdit, QLabel, QMessageBox
+from PyQt5.QtWidgets import QMainWindow, QInputDialog, QWidget, QListView, QPushButton, QComboBox, QGridLayout, QHBoxLayout, QVBoxLayout, QApplication, QLineEdit, QLabel, QMessageBox
 from PyQt5.QtCore import pyqtSignal, QThread, Qt
 from PyQt5.QtGui import QPixmap
 
@@ -99,6 +99,10 @@ class Menu(QWidget):
         vlayout = QVBoxLayout()
         self.setLayout(vlayout)
         
+        self.usernameLabel = QLabelCenter('Username: None')
+        self.winLabel = QLabelCenter('Win:0')
+        self.usernameEnemyLabel = QLabelCenter('Enemy Username: None')
+        self.winEnemyLabel = QLabelCenter('Enemy Win:0')
         self.hintLabel = QLabelCenter('Wait for start.')
         self.widthEdit = MyEdit('Width', '8')
         self.heightEdit = MyEdit('Height', '8')
@@ -115,7 +119,18 @@ class Menu(QWidget):
         self.retractButton.clicked.connect(self.retract)
         self.giveUpButton = QPushButton('Give up')
         self.giveUpButton.clicked.connect(self.giveUp)
+    
+        self.AILevelBox = QComboBox(self)
+        self.AILevelBox.addItem("1")
+        self.AILevelBox.addItem("2")
+        self.AILevelBox.addItem("3")
+        self.AIActButton = QPushButton('AI Act')
+        self.AIActButton.clicked.connect(self.AIAct)
         
+        vlayout.addWidget(self.usernameLabel)
+        vlayout.addWidget(self.winLabel)
+        vlayout.addWidget(self.usernameEnemyLabel)
+        vlayout.addWidget(self.winEnemyLabel)
         vlayout.addWidget(self.hintLabel)
         vlayout.addWidget(self.widthEdit)
         vlayout.addWidget(self.heightEdit)
@@ -124,6 +139,14 @@ class Menu(QWidget):
         vlayout.addWidget(self.skipButton)
         vlayout.addWidget(self.retractButton)
         vlayout.addWidget(self.giveUpButton)
+        vlayout.addWidget(self.AILevelBox)
+        vlayout.addWidget(self.AIActButton)
+        
+        
+        text, ok = QInputDialog.getText(self, 'Username', 'Username: ')
+        self.client.username = text
+        self.usernameLabel.setText('username: ' + text)
+        self.client.start()
     
     def gameStart(self):
         gameType = self.gameTypeBox.currentText()
@@ -139,6 +162,9 @@ class Menu(QWidget):
         
     def retract(self):
         self.client.retract()
+        
+    def AIAct(self):
+        self.client.AIAct(int(self.AILevelBox.currentText()))
     
         
         
@@ -150,6 +176,7 @@ class MainWindow(QMainWindow):
         self.client.setStateSign.connect(self.setState)
         self.client.messageSign.connect(self.showMessage)
         self.client.gameOverSign.connect(self.gameOver)
+        self.client.updateWinRoundSign.connect(self.updateWinRound)
         self.initUI()
 	
     def initUI(self):
@@ -181,5 +208,10 @@ class MainWindow(QMainWindow):
     
     def gameOver(self):
         self.menu.hintLabel.setText('Wait for start.')
-        
+    
+    def updateWinRound(self, data, enemy_data):
+        self.menu.usernameLabel.setText('Username:'+str(data['name']))
+        self.menu.usernameEnemyLabel.setText('Enemy Username:'+str(enemy_data['name']))
+        self.menu.winLabel.setText('Win:'+str(data['win']))
+        self.menu.winEnemyLabel.setText('Enemy win:'+str(enemy_data['win']))
         

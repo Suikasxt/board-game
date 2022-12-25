@@ -1,5 +1,8 @@
 from proxy import ServerProxy
+import time
 from rule import RuleFactory, MementoBox
+from ai import AIFactory
+from userData import user_data
 
 class GameServer:
     def __init__(self) -> None:
@@ -8,13 +11,24 @@ class GameServer:
     
     def gameLoop(self):
         memory = MementoBox()
-        gameInfo = self.proxy.sendGameStart()
+        gameInfo, first_player_id = self.proxy.sendGameStart()
+                
         rule = RuleFactory.create(gameInfo['gameType'], gameInfo['height'], gameInfo['width'])
         rule.reset()
-        memory.store(*rule.store())
-        self.proxy.sendState(*rule.store())
+        rule.turn = first_player_id
+        data = rule.store()
+        memory.store(*data)
+        self.proxy.sendState(data[0], data[1])
         while True:
             player_id, data = self.proxy.recv()
+            
+            if data['type'] == 'AI act':
+                AI = AIFactory.create(data['level'], rule)
+                data = {
+                    'type': 'step',
+                    'action': AI.act(),
+                }
+            
             if data['type'] == 'step':
                 action = {
                     'coord': data['action'],
@@ -46,17 +60,22 @@ class GameServer:
                 raise ValueError('Invaild action type {}'.format(data['type']))
             
         self.proxy.sendGameOver(winner)
-        self.proxy.sendMessage('Game over. Winner is player {}'.format(winner))
+        self.proxy.sendMessage('Game over. Winner is {}'.format(self.user_name[winner]))
         result = {
             'winner': winner,
             'exit': False
         }
+        if winner > -1 and self.user_name[winner]:
+            user_data.win(self.user_name[winner])
+            
         return result
         
     
     def mainLoop(self):
-        self.proxy.connect()
+        self.user_name = self.proxy.connect()
+        
         while True:
+            self.proxy.sendUserData([user_data.get(self.user_name[0]), user_data.get(self.user_name[1])])
             result = self.gameLoop()
             print('Game over', result)
             if result['exit']:

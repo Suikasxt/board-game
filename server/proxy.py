@@ -1,6 +1,7 @@
 import socket
 import json
 import sys
+import time
 sys.path.append('./..')
 import settings
 
@@ -18,15 +19,18 @@ class ServerProxy:
             s.listen(5)
             
         connected = [False, False]
+        username = [None, None]
         while not all(connected):
             for i in range(2):
                 if not connected[i]:
                     try:
                         self.client[i], add = self.socket[i].accept()
+                        username[i] = self.recv([i])[1]['name']
                     except socket.timeout:
                         continue
                     print('****Player {} connected.'.format(i))
                     connected[i] = True
+        return username
     
     def send(self, data, player_id = [0,1]):
         if not (type(player_id) == list):
@@ -37,6 +41,7 @@ class ServerProxy:
             
         print("****Send data to {}".format(player_id))
         print(data)
+        time.sleep(0.2)
             
     def sendGameStart(self):
         while True:
@@ -53,7 +58,7 @@ class ServerProxy:
         self.send(game_info_message)
         self.sendMessage('{} game start.'.format(game_info['gameType']))
         
-        return game_info
+        return game_info, player_id
 
     def sendGameOver(self, winner):
         over_order = {
@@ -78,9 +83,17 @@ class ServerProxy:
         }
         self.send(data, player_id)
     
-    def recv(self):
+    def sendUserData(self, data):
+        data = {
+            'type': 'user data',
+            'data': data
+        }
+        self.send(data)
+    
+    
+    def recv(self, id=[0, 1]):
         while True:
-            for player_id in [0, 1]:
+            for player_id in id:
                 try:
                     data = json.loads(self.client[player_id].recv(1024).decode('utf-8'))
                 except socket.timeout:

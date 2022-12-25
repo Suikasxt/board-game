@@ -19,6 +19,7 @@ class ClientProxy:
         print("****Send data")
         print(data)
         self.socket.send(json.dumps(data).encode('utf-8'))
+        time.sleep(0.2)
         
     
     def sendGameInfo(self, gameInfo):
@@ -46,10 +47,24 @@ class ClientProxy:
             'type': 'retract'
         }
         self.send(data)
+    
+    def sendAIAct(self, level):
+        data = {
+            'type': 'AI act',
+            'level': int(level)
+        }
+        self.send(data)
+        
+    def sendName(self, name):
+        data = {
+            'type': 'name',
+            'name': name
+        }
+        self.send(data)
         
     def recv(self):
         data = self.socket.recv(1024).decode('utf-8')
-        data = json.loads(data)
         print("****Receive data")
         print(data)
+        data = json.loads(data)
         return data

@@ -3,12 +3,14 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import pyqtSignal, QThread
 from proxy import ClientProxy
 from gui import MainWindow
+import time
 
 class GameClient(QThread):
     setGameInfoSign = pyqtSignal(str, int, int)
     setStateSign = pyqtSignal(object, int)
     gameOverSign = pyqtSignal()
     messageSign = pyqtSignal(str)
+    updateWinRoundSign = pyqtSignal(dict, dict)
     def __init__(self, player_id):
         self.player_id = player_id
         self.state = None
@@ -35,9 +37,14 @@ class GameClient(QThread):
     
     def retract(self):
         self.proxy.sendRetract()
+        
+    def AIAct(self, level):
+        self.proxy.sendAIAct(level)
+    
   
     def run(self):
         self.proxy.connect()
+        self.proxy.sendName(self.username)
         while True:
             order = self.proxy.recv()
             if order['type'] == 'start':
@@ -47,6 +54,8 @@ class GameClient(QThread):
                 self.setStateSign.emit(order['state'], order['turn'])
             elif order['type'] == 'message':
                 self.messageSign.emit(order['message'])
+            elif order['type'] == 'user data':
+                self.updateWinRoundSign.emit(order['data'][self.player_id], order['data'][self.player_id^1])
             elif order['type'] == 'over':
                 self.gameOverSign.emit()
         
@@ -57,5 +66,4 @@ if __name__ == '__main__':
     client = GameClient(int(sys.argv[1]))
     w = MainWindow(client)
     w.show()
-    client.start()
     sys.exit(app.exec_())
